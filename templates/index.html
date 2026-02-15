@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Matcher</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='static.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="animate__animated animate__fadeInDown">AI Resume & Job Description Matcher</h1>
+        <p class="animate__animated animate__fadeIn animate__delay-1s">Paste your resume and the job description to get a match score and improvement suggestions</p>
+        
+        <div class="input-area animate__animated animate__fadeIn animate__delay-1s">
+            <div class="input-box">
+                <h2>Your Resume</h2>
+                <textarea id="resume" placeholder="Paste your resume here..."></textarea>
+            </div>
+            <div class="input-box">
+                <h2>Job Description</h2>
+                <textarea id="job_description" placeholder="Paste the job description here..."></textarea>
+            </div>
+        </div>
+        
+        <button id="analyze-btn" class="pulse-button">Analyze Match</button>
+        
+        <div id="results" class="hidden animate__animated animate__fadeIn">
+            <div class="score-container">
+                <div class="score-circle">
+                    <span id="match-score">0</span>%
+                </div>
+                <h3>Match Score</h3>
+            </div>
+            
+            <div class="results-section">
+                <h3>Matching Keywords</h3>
+                <div id="matching-keywords" class="keywords-container"></div>
+            </div>
+            
+            <div class="results-section">
+                <h3>Missing Keywords</h3>
+                <p>These important keywords from the job description are missing from your resume:</p>
+                <div id="missing-keywords" class="keywords-container"></div>
+            </div>
+            
+            <div class="results-section">
+                <h3>Resume Analysis</h3>
+                <div id="resume-analysis"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('analyze-btn').addEventListener('click', async () => {
+            const resume = document.getElementById('resume').value;
+            const jobDescription = document.getElementById('job_description').value;
+            
+            if (!resume || !jobDescription) {
+                alert('Please enter both your resume and the job description');
+                return;
+            }
+            
+            // Add loading animation
+            const btn = document.getElementById('analyze-btn');
+            btn.innerHTML = '<span class="loader"></span> Analyzing...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'resume': resume,
+                        'job_description': jobDescription
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Display results
+                document.getElementById('match-score').textContent = data.score;
+                
+                // Animate score circle
+                const scoreCircle = document.querySelector('.score-circle');
+                scoreCircle.classList.add('animate__animated', 'animate__zoomIn');
+                
+                // Display matching keywords
+                const matchingKeywordsContainer = document.getElementById('matching-keywords');
+                matchingKeywordsContainer.innerHTML = data.matching_keywords
+                    .map(kw => `<span class="keyword match animate__animated animate__fadeIn">${kw}</span>`)
+                    .join('');
+                
+                // Display missing keywords
+                const missingKeywordsContainer = document.getElementById('missing-keywords');
+                missingKeywordsContainer.innerHTML = data.missing_keywords
+                    .map(kw => `<span class="keyword missing animate__animated animate__fadeIn">${kw}</span>`)
+                    .join('');
+                
+                // Display resume analysis
+                const resumeAnalysisContainer = document.getElementById('resume-analysis');
+                let analysisHtml = '';
+                
+                // Sections
+                if (data.resume_analysis.sections) {
+                    analysisHtml += '<h4>Sections Found:</h4><ul>';
+                    for (const [section, content] of Object.entries(data.resume_analysis.sections)) {
+                        analysisHtml += `<li class="animate__animated animate__fadeIn"><strong>${section}:</strong> ${content.length} items</li>`;
+                    }
+                    analysisHtml += '</ul>';
+                }
+                
+                // Metrics
+                if (data.resume_analysis.metrics) {
+                    analysisHtml += '<h4>Metrics:</h4><ul>';
+                    analysisHtml += `<li class="animate__animated animate__fadeIn"><strong>Word count:</strong> ${data.resume_analysis.metrics.word_count}</li>`;
+                    analysisHtml += `<li class="animate__animated animate__fadeIn"><strong>Bullet points:</strong> ${data.resume_analysis.metrics.bullet_points}</li>`;
+                    analysisHtml += `<li class="animate__animated animate__fadeIn"><strong>Action verbs:</strong> ${data.resume_analysis.metrics.action_verbs}</li>`;
+                    analysisHtml += '</ul>';
+                }
+                
+                resumeAnalysisContainer.innerHTML = analysisHtml;
+                
+                // Show results with animation
+                const results = document.getElementById('results');
+                results.classList.remove('hidden');
+                results.classList.add('animate__fadeIn');
+                
+            } catch (error) {
+                alert('Error analyzing your resume: ' + error.message);
+                console.error(error);
+            } finally {
+                // Reset button
+                btn.innerHTML = 'Analyze Match';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
